@@ -37,9 +37,19 @@ To tune it, change `LEVEL` in `src/board.c`.
 test/run.sh      # host tests: the rules and the levels, then the real main() on a fake Q2 panel
 ```
 
-The build needs `clang`, `ld.lld` and `python3` with Pillow. `tools/font.py` bakes Poppins
-(`POPPINS_DIR`, Poppins-Bold.ttf and Poppins-Medium.ttf) into `build/fonts.c`. `tools/icon.py`
-redraws the card icons. The binary is built as Challenger Deep and Wordle are, with no MIPS
+The build needs `clang`, `ld.lld` and `python3` with Pillow and numpy, and three fonts from
+[google/fonts](https://github.com/google/fonts): Yellowtail (`YELLOWTAIL_TTF`), DM Serif Display
+(`DMSERIF_TTF`) and Josefin Sans, the variable font (`JOSEFIN_TTF`), or a checkout of that
+repository as `FONTS_DIR`. `tools/font.py` bakes them into `build/fonts.c`. `tools/art.py` draws
+the still parts of the two screens (the tile pattern, the menu's sign and title, the board's card
+and grid, the bottom strip) into `build/art.c`, so the game only draws what changes.
+`tools/icon.py` redraws the card icons.
+
+## The look
+
+A 50s diner look: cream, teal, tomato red and mustard; a red script (Yellowtail) over a teal
+display serif (DM Serif Display), with small capitals in Josefin Sans; atomic starbursts. It
+follows the design mockup the screens were drawn from. The binary is built as Challenger Deep and Wordle are, with no MIPS
 sysroot: MIPS32r2 little-endian, o32, FR=1, NaN2008, glibc 2.28, interpreter
 `/lib/ld-linux-mipsn8.so.1`. `sysroot/stubs/gen.py` makes a stub `libc.so.6` to link against. If
 you add a libc call, add it to `gen.py` too.
@@ -48,4 +58,5 @@ The test frames land in `test/out/*.png`, with the glass's rounded corners shade
 
 ## Licences
 
-Code: MIT ([LICENSE](LICENSE)). Poppins: SIL Open Font License 1.1.
+Code: MIT ([LICENSE](LICENSE)). Yellowtail: Apache License 2.0. DM Serif Display and Josefin Sans:
+SIL Open Font License 1.1.

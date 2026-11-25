@@ -5,7 +5,7 @@
 #
 #   ./build.sh            -> build/q2-tictactoe and dist/.tictactoe/ (copy .tictactoe to the card's root)
 #
-# Needs clang, ld.lld and python3 with Pillow, no MIPS sysroot: sysroot/include declares what the
+# Needs clang, ld.lld and python3 with Pillow and numpy, and the fonts (tools/font.py), no MIPS sysroot: sysroot/include declares what the
 # game uses, and the stub libc made by sysroot/stubs/gen.py carries the real soname and symbol
 # versions, so on the Q2 the rootfs's own glibc is what runs. rt/ is glibc's crt1 and libgcc's
 # 64-bit division. _IO_stdin_used is exported because glibc looks it up in the program.
@@ -22,8 +22,9 @@ STRICT="-Wall -Wextra -Wno-unused-parameter -Werror"
 rm -rf build/obj
 mkdir -p build/obj
 python3 tools/font.py build/fonts.c
+python3 tools/art.py build/art.c
 python3 sysroot/stubs/gen.py build/stubs
-for src in src/*.c build/fonts.c; do
+for src in src/*.c build/fonts.c build/art.c; do
     clang $COMMON -nostdlibinc -isystem sysroot/include -Isrc $STRICT -c "$src" -o build/obj/$(basename "$src" .c).o
 done
 for src in rt/*.c; do

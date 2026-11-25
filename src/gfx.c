@@ -1,5 +1,5 @@
 /* Drawing into the frame: flat fills, smooth (anti-aliased) shapes from signed distances, and the
- * baked Poppins fonts. Shapes are only worked out inside their bounding boxes. */
+ * baked fonts (font.py). Shapes are only worked out inside their bounding boxes. */
 #include <stdint.h>
 #include <string.h>
 
@@ -45,7 +45,9 @@ void rect(int x, int y, int w, int h, uint32_t c, int alpha) {
     }
 }
 
-void darken(int alpha) { rect(0, 0, VIEW_W, VIEW_H, 0, alpha); }
+void backdrop(const uint8_t *rgb) {
+    for (int i = 0; i < VIEW_W * VIEW_H; ++i, rgb += 3) fb[i] = (uint32_t)rgb[0] << 16 | (uint32_t)rgb[1] << 8 | rgb[2];
+}
 
 /* The shapes: SDF(px, py) is the signed distance from the pixel's centre to the edge (inside
  * negative), and the pixel is covered by 0.5 - d of it. */
@@ -84,6 +86,22 @@ void rrect(float x, float y, float w, float h, float r, uint32_t c, int alpha) {
 void rrect_line(float x, float y, float w, float h, float r, float t, uint32_t c, int alpha) {
     float cx = x + w / 2, cy = y + h / 2;
     SHAPE(x, y, x + w, y + h, fabsf_(sd_rrect(px, py, cx, cy, w / 2 - t / 2, h / 2 - t / 2, r - t / 2)) - t / 2);
+}
+
+/* dashes along the edge: on straight runs, x + y steps evenly, so stripes of it read as dashes */
+void rrect_dash(float x, float y, float w, float h, float r, float t, uint32_t c, int alpha) {
+    float cx = x + w / 2, cy = y + h / 2;
+    SHAPE(x, y, x + w, y + h,
+          ((int)((px + py) / 5) & 1) ? 1.0f : fabsf_(sd_rrect(px, py, cx, cy, w / 2 - t / 2, h / 2 - t / 2, r - t / 2)) - t / 2);
+}
+
+static float fsin(float a);
+static float fcos(float a);
+
+void rrect_rot(float cx, float cy, float w, float h, float r, float angle, uint32_t c, int alpha) {
+    float s = fsin(angle), k = fcos(angle), R = fsqrt(w * w + h * h) / 2 + 1;
+    SHAPE(cx - R, cy - R, cx + R, cy + R,
+          sd_rrect(cx + (px - cx) * k + (py - cy) * s, cy - (px - cx) * s + (py - cy) * k, cx, cy, w / 2, h / 2, r));
 }
 
 static inline float sd_segment(float px, float py, float x0, float y0, float x1, float y1) {
@@ -139,37 +157,82 @@ void arc(float cx, float cy, float r, float t, float a0, float sweep, uint32_t c
  * Text */
 
 static const Glyph *glyph(const Font *f, char ch) {
-    if (ch < 32 || ch > 126) ch = '?';
-    return &f->g[ch - 32];
+    unsigned char u = (unsigned char)ch;
+    if (u < 32 || u > 127) u = '?';
+    return &f->g[u - 32];
 }
 
-int text_w(const Font *f, const char *s) {
-    int w = 0;
-    for (; *s; ++s) w += glyph(f, *s)->adv;
-    return w;
+int text_w(const Font *f, const char *s, float track) {
+    float w = 0;
+    int n = 0;
+    for (; *s; ++s, ++n) w += glyph(f, *s)->adv;
+    return (int)(w + track * (n > 0 ? n - 1 : 0) + 0.5f);
 }
 
-void text(const Font *f, const char *s, int x, int y, uint32_t c, int alpha) {
-    int top = y - f->ascent;
-    for (; *s; ++s) {
-        const Glyph *g = glyph(f, *s);
-        int gx = x + g->lsb;
-        for (int r = 0; r < f->h; ++r) {
-            int yy = top + r;
-            if (yy < 0 || yy >= VIEW_H) continue;
-            const uint8_t *in = f->px + r * f->aw + g->x;
-            uint32_t *o = fb + yy * VIEW_W;
-            for (int k = 0; k < g->w; ++k) {
-                int xx = gx + k;
-                if (!in[k] || xx < 0 || xx >= VIEW_W) continue;
-                unsigned a = (unsigned)(in[k] + 1) * (unsigned)alpha >> 8;
-                o[xx] = a >= 256 ? c : blend(o[xx], c, a);
-            }
+static void glyph_draw(const Font *f, const Glyph *g, int gx, int top, uint32_t c, int alpha) {
+    for (int r = 0; r < f->h; ++r) {
+        int yy = top + r;
+        if (yy < 0 || yy >= VIEW_H) continue;
+        const uint8_t *in = f->px + r * f->aw + g->x;
+        uint32_t *o = fb + yy * VIEW_W;
+        for (int k = 0; k < g->w; ++k) {
+            int xx = gx + k;
+            if (!in[k] || xx < 0 || xx >= VIEW_W) continue;
+            unsigned a = (unsigned)(in[k] + 1) * (unsigned)alpha >> 8;
+            o[xx] = a >= 256 ? c : blend(o[xx], c, a);
         }
-        x += g->adv;
     }
 }
 
-void text_c(const Font *f, const char *s, int cx, int y, uint32_t c, int alpha) {
-    text(f, s, cx - text_w(f, s) / 2, y, c, alpha);
+void text(const Font *f, const char *s, float x, int y, uint32_t c, int alpha, float track) {
+    int top = y - f->ascent;
+    for (; *s; ++s) {
+        const Glyph *g = glyph(f, *s);
+        glyph_draw(f, g, (int)(x + 0.5f) + g->lsb, top, c, alpha);
+        x += g->adv + track;
+    }
+}
+
+void text_c(const Font *f, const char *s, int cx, int y, uint32_t c, int alpha, float track) {
+    text(f, s, cx - text_w(f, s, track) / 2.0f, y, c, alpha, track);
+}
+
+/* the line set into a coverage buffer, then sampled turned (bilinear) */
+void text_rot(const Font *f, const char *s, float cx, float cy, float angle, uint32_t c) {
+    static uint8_t buf[480 * 64];
+    int tw = text_w(f, s, 0) + 4, th = f->h;
+    if (tw > 480 || th > 64) return;
+    memset(buf, 0, (size_t)(tw * th));
+    int x = 2;
+    for (const char *p = s; *p; ++p) {
+        const Glyph *g = glyph(f, *p);
+        for (int r = 0; r < th; ++r)
+            for (int k = 0; k < g->w; ++k) {
+                int xx = x + g->lsb + k;
+                if (xx < 0 || xx >= tw) continue;
+                uint8_t v = f->px[r * f->aw + g->x + k];
+                if (v > buf[r * tw + xx]) buf[r * tw + xx] = v;
+            }
+        x += g->adv;
+    }
+    /* the buffer's point that lands on cx, cy: the middle of the line, halfway up the capitals */
+    float bx = tw / 2.0f, by = f->ascent - f->cap / 2.0f;
+    float sn = fsin(angle), cs = fcos(angle), R = fsqrt((float)(tw * tw + th * th)) / 2 + th;
+    int x0 = (int)(cx - R), x1 = (int)(cx + R), y0 = (int)(cy - R), y1 = (int)(cy + R);
+    for (int yy = y0 < 0 ? 0 : y0; yy < (y1 > VIEW_H ? VIEW_H : y1); ++yy)
+        for (int xx = x0 < 0 ? 0 : x0; xx < (x1 > VIEW_W ? VIEW_W : x1); ++xx) {
+            float dx = xx + 0.5f - cx, dy = yy + 0.5f - cy;
+            float u = bx + dx * cs + dy * sn - 0.5f, v = by - dx * sn + dy * cs - 0.5f;
+            if (u < -1 || v < -1 || u >= tw || v >= th) continue;
+            int iu = (int)(u + 1) - 1, iv = (int)(v + 1) - 1;
+            float fu = u - iu, fv = v - iv;
+#define AT(a, b) ((a) < 0 || (b) < 0 || (a) >= tw || (b) >= th ? 0.0f : (float)buf[(b) * tw + (a)])
+            float cov = (AT(iu, iv) * (1 - fu) + AT(iu + 1, iv) * fu) * (1 - fv) +
+                        (AT(iu, iv + 1) * (1 - fu) + AT(iu + 1, iv + 1) * fu) * fv;
+#undef AT
+            if (cov < 1) continue;
+            unsigned a = (unsigned)(cov + 1.0f);
+            uint32_t *o = fb + yy * VIEW_W + xx;
+            *o = a >= 256 ? c : blend(*o, c, a);
+        }
 }

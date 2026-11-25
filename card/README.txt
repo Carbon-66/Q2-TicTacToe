@@ -24,7 +24,8 @@ CONTROLS
   Centre         play in the highlighted square; after a round, start the next
   Touch          tap a square to play there; tap a menu line to pick it
   Return         back to the menu
-  Hold Return    leave the game (Q2 Pod's own)
+  Quit           the X in an O at the bottom of the menu: leave the game
+  Hold Return    leave the game from anywhere (Q2 Pod's own)
 The music keeps playing: Play/Pause and the side buttons stay the player's.
 
 FILES
@@ -32,4 +33,5 @@ FILES
   tictactoe.sav    the Q2's level, and your record against it at each level
   tictactoe.log    what the game did, for when something goes wrong
 
-Code: MIT licence. Font: Poppins, SIL Open Font License 1.1.
+Code: MIT licence. Fonts: Yellowtail (Apache License 2.0), DM Serif Display and Josefin Sans
+(SIL Open Font License 1.1).

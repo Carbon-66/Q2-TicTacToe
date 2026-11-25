@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""The card's icons, drawn: a little game won by X, on the game's navy, in a rounded square.
+"""The card's icons, drawn: a little game won by X on a cream card, over the game's teal tiles.
 card/icon.png (52 px, Library's Games row) and card/icon-40.png (40 px). Usage: tools/icon.py"""
 import pathlib
 from PIL import Image, ImageDraw
 
-X, O, GRID = (255, 107, 129), (79, 214, 200), (88, 100, 138)
+X, O, GRID, CREAM, MUSTARD = (200, 40, 30), (26, 143, 128), (26, 122, 110), (244, 235, 207), (242, 189, 44)
 
 def icon(size):
     S = size * 8  # drawn large, then scaled down smooth
     bg = Image.new('RGB', (S, S))
     px = bg.load()
+    tile = S / 3
     for y in range(S):
-        t = y / S
-        top, bot = (36, 42, 62), (16, 19, 28)
-        c = tuple(int(top[i] + (bot[i] - top[i]) * t) for i in range(3))
         for x in range(S):
-            px[x, y] = c
+            dx, dy = (x + tile / 2) % tile - tile / 2, (y + tile / 2) % tile - tile / 2
+            px[x, y] = (60, 196, 172) if dx * dx + dy * dy < (0.71 * 0.707 * tile) ** 2 else (27, 122, 110)
     d = ImageDraw.Draw(bg)
+    d.rounded_rectangle([S * 0.07, S * 0.07, S * 0.93, S * 0.93], radius=S * 0.12, fill=CREAM,
+                        outline=MUSTARD, width=int(S * 0.04))
     m, cs = S * 0.14, S * 0.24
     w = int(S * 0.035)
     for k in (1, 2):
@@ -40,7 +41,7 @@ def icon(size):
     for i in (2, 3):
         omark(i)
     a, b = (m + 0.3 * cs, m + 0.3 * cs), (m + 2.7 * cs, m + 2.7 * cs)
-    d.line([a, b], fill=(255, 255, 255), width=int(S * 0.03))
+    d.line([a, b], fill=MUSTARD, width=int(S * 0.045))
     mask = Image.new('L', (S, S), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, S - 1, S - 1], radius=S * 0.22, fill=255)
     im = Image.new('RGBA', (S, S), (0, 0, 0, 0))

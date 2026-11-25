@@ -38,22 +38,27 @@ typedef struct {
 typedef struct {
     int aw, h, ascent, cap; /* atlas width, line height, rows above the baseline, a capital's height */
     const uint8_t *px;
-    Glyph g[95]; /* ' ' to '~' */
+    Glyph g[96]; /* ' ' to '~', then the middle dot as 127 */
 } Font;
-extern const Font font_small, font_body, font_bold, font_big;
+#define DOT "\x7f" /* the middle dot, in the fonts as 127 */
+extern const Font font_name_sm, font_name, font_script, font_script_big, font_score, font_caps, font_caps_sm, font_caps_xs;
+extern const uint8_t art_menu[VIEW_W * VIEW_H * 3], art_play[VIEW_W * VIEW_H * 3]; /* art.c: the still parts, RGB */
 
 extern uint32_t *fb; /* VIEW_W x VIEW_H */
 void fill(uint32_t c);
 void rect(int x, int y, int w, int h, uint32_t c, int alpha);       /* alpha 0-256 */
 void rrect(float x, float y, float w, float h, float r, uint32_t c, int alpha); /* rounded, smooth edges */
 void rrect_line(float x, float y, float w, float h, float r, float t, uint32_t c, int alpha);
+void rrect_dash(float x, float y, float w, float h, float r, float t, uint32_t c, int alpha); /* a dashed edge */
+void rrect_rot(float cx, float cy, float w, float h, float r, float angle, uint32_t c, int alpha); /* turned by angle, radians */
+void backdrop(const uint8_t *rgb); /* a whole baked screen */
 void capsule(float x0, float y0, float x1, float y1, float r, uint32_t c, int alpha); /* a thick line, round ends */
 void arc(float cx, float cy, float r, float t, float a0, float sweep, uint32_t c, int alpha); /* ring from a0, radians, clockwise on screen */
 void disc(float cx, float cy, float r, uint32_t c, int alpha);
-int text_w(const Font *f, const char *s);
-void text(const Font *f, const char *s, int x, int y, uint32_t c, int alpha); /* y: the baseline */
-void text_c(const Font *f, const char *s, int cx, int y, uint32_t c, int alpha);
-void darken(int alpha);
+int text_w(const Font *f, const char *s, float track);
+void text(const Font *f, const char *s, float x, int y, uint32_t c, int alpha, float track); /* y: the baseline; track: px between letters */
+void text_c(const Font *f, const char *s, int cx, int y, uint32_t c, int alpha, float track);
+void text_rot(const Font *f, const char *s, float cx, float cy, float angle, uint32_t c); /* centred on cx, cy (the capitals' middle), turned */
 
 int game_main(void);
 #endif

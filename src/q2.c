@@ -31,7 +31,7 @@
 
 #include "tt.h"
 
-#define VERSION "1.0"
+#define VERSION "1.1"
 #define APP_DIR "/mnt/mmc/.tictactoe"
 #define INPUT_SOCK "/tmp/q2-tictactoe.input.sock"
 #define LOG_FILE "tictactoe.log"

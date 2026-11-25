@@ -5,7 +5,8 @@ logged and the state it ended in. Frames are saved as OUT_DIR/<scenario>-<name>.
 them).
 
 Usage: drive.py BUILD_DIR OUT_DIR SCENARIO
-Scenarios: menu, two (two players by wheel and Centre), touch (two players by touch), q2 (vs the Q2)"""
+Scenarios: menu, two (two players by wheel and Centre), touch (two players by touch), q2 (vs the Q2),
+quit (by wheel and Centre), quit_tap"""
 import os, shutil, signal, socket, subprocess, sys, tempfile, time
 
 build, outdir, scenario = sys.argv[1:4]
@@ -60,8 +61,8 @@ def tap(x, y):
     send(f't d {x} {y}'); time.sleep(0.05); send(f't u {x} {y}'); time.sleep(0.12)
 
 def cell_xy(i):  # the centre of square i, as game.c lays them out
-    cs, bx, by = 78, (375 - 3 * 78) // 2, 43
-    return bx + (i % 3) * cs + cs // 2, by + (i // 3) * cs + cs // 2
+    cs, bx, by = 209 / 3, 83, 56
+    return int(bx + (i % 3 + 0.5) * cs), int(by + (i // 3 + 0.5) * cs)
 
 def snap(name):
     time.sleep(0.1)
@@ -85,7 +86,18 @@ def board():
 
 results = {}
 time.sleep(0.4)
-if scenario == 'menu':
+if scenario in ('quit', 'quit_tap'):
+    if scenario == 'quit':
+        wheel(-1); snap('quit'); results['sel'] = state()['menu']
+        key(CENTRE, 0.01)
+    else:
+        tap(187, 270)
+    for _ in range(40):
+        if proc.poll() is not None:
+            break
+        time.sleep(0.05)
+    results['ended_itself'] = int(proc.poll() == 0)
+elif scenario == 'menu':
     snap('title')
     wheel(2); snap('level'); results['sel_level'] = state()['menu']
     lv = state()['level']
@@ -159,7 +171,8 @@ elif scenario == 'q2':
     results['tally'] = st['x_wins'] + st['o_wins'] + st['draws']
 
 end = state()
-proc.send_signal(signal.SIGTERM)
+if proc.poll() is None:
+    proc.send_signal(signal.SIGTERM)
 try:
     status = proc.wait(5)
 except subprocess.TimeoutExpired:
